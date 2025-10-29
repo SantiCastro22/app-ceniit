@@ -7,6 +7,15 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Archivos de entorno
+.env
+.env.*
+!.env.example
+ceniit-backend/.env
+ceniit-frontend/.env
+ceniit-backend/.env.*
+ceniit-frontend/.env.*
+
 node_modules
 ceniit-frontend/node_modules/
 ceniit-backend/node_modules/
