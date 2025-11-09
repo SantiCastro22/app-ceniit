@@ -2,18 +2,26 @@ import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 
-import authRoutes from './routes/auth.js';
-import userRoutes from './routes/users.js';
-import resourceRoutes from './routes/resources.js';
-import reservationRoutes from './routes/reservations.js';
-import projectRoutes from './routes/projects.js';
+// import authRoutes from './routes/auth.js'; // Replaced by new architecture
+import authRouter from './src/auth/index.js';
+// import userRoutes from './routes/users.js'; // Replaced by new architecture
+import userRouter from './src/users/index.js';
+import resourceRouter from './src/resources/index.js';
+// import reservationRoutes from './routes/reservations.js'; // Replaced by new architecture
+import reservationRouter from './src/reservations/index.js';
+import projectRouter from './src/projects/index.js';
 
 dotenv.config();
 
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || '*',
+  credentials: true,
+  optionsSuccessStatus: 200
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -23,17 +31,23 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/resources', resourceRoutes);
-app.use('/api/reservations', reservationRoutes);
-app.use('/api/projects', projectRoutes);
+// API v1 Router
+const apiV1Router = express.Router();
 
-// Health check
-app.get('/api/health', (req, res) => {
+// Mount feature routers
+apiV1Router.use('/auth', authRouter);
+apiV1Router.use('/users', userRouter);
+apiV1Router.use('/resources', resourceRouter);
+apiV1Router.use('/reservations', reservationRouter);
+apiV1Router.use('/projects', projectRouter);
+
+// Health check for v1
+apiV1Router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
+
+// Mount the v1 router
+app.use('/', apiV1Router);
 
 // 404 handler
 app.use((req, res) => {
