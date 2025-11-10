@@ -10,6 +10,7 @@ import {
   User,
   LogOut
 } from 'lucide-react';
+import logo from '../../assets/logo-ceniit.png';
 
 export const Sidebar = ({ activeSection, setActiveSection, user, onLogout }) => {
   const menuItems = [
@@ -27,7 +28,7 @@ export const Sidebar = ({ activeSection, setActiveSection, user, onLogout }) => 
   return (
     <div className="w-64 bg-white shadow-lg flex flex-col h-screen">
       <div className="p-6 border-b">
-        <h2 className="text-xl font-bold text-gray-900">CENIIT</h2>
+        <img src={ logo } alt="Logo CENIIT" className="w-20" />
         <p className="text-sm text-gray-600">Sistema de Gestión</p>
       </div>
       

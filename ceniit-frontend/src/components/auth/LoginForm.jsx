@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Package, Eye, EyeOff } from 'lucide-react';
+import logo from '../../assets/logo-ceniit.png';
 
 export const LoginForm = () => {
   const { login } = useAuth();
@@ -25,14 +26,17 @@ export const LoginForm = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4">
-      <div className="max-w-md w-full space-y-8">
+    <div className="min-h-screen flex items-center justify-center bg-login-bg bg-cover bg-center py-12 px-4">
+      <div className="max-w-md w-full space-y-8 bg-white p-8 rounded-lg shadow-lg">
         <div>
-          <div className="mx-auto h-12 w-12 flex items-center justify-center rounded-xl bg-blue-500">
-            <Package className="h-6 w-6 text-white" />
+          <div className="flex items-center justify-center gap-4">
+            <div className="h-12 w-12 flex items-center justify-center rounded-xl bg-blue-500">
+              <Package className="h-6 w-6 text-white" />
+            </div>
+            <img src={ logo } alt="Logo CENIIT" className="w-32" />
           </div>
           <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Inicia sesión en CENIIT
+            Inicia sesión
           </h2>
           <p className="mt-2 text-center text-sm text-gray-600">
             Sistema de Gestión de Recursos y Proyectos
@@ -88,7 +92,7 @@ export const LoginForm = () => {
 
           <div className="text-center">
             <p className="text-sm text-gray-600">
-              Credenciales de prueba: admin@ceniit.com / pass123
+              Credenciales de prueba: admin@ceniit.com / pass123 (admin)
             </p>
           </div>
         </div>
