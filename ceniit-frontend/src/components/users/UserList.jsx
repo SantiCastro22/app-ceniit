@@ -1,10 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Users, CheckCircle, Settings } from 'lucide-react';
+import { Plus, Users, CheckCircle, Settings } from 'lucide-react';
 import { userService } from '../../services/userService';
+import { UserForm } from './UserForm';
+import { Modal } from '../common/Modal';
+import { ConfirmDialog } from '../common/ConfirmDialog';
+import { useAuth } from '../../context/AuthContext';
 
 export const UserList = () => {
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showUserModal, setShowUserModal] = useState(false);
+  const [editingUser, setEditingUser] = useState(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingUser, setDeletingUser] = useState(null);
 
   useEffect(() => {
     loadUsers();
@@ -22,8 +31,67 @@ export const UserList = () => {
     }
   };
 
+  const handleCreateUser = async (userData) => {
+    try {
+      // Usar el endpoint de registro para crear usuario
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(userData)
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Error al crear usuario');
+      }
+
+      await loadUsers();
+      setShowUserModal(false);
+      alert('Usuario creado exitosamente');
+    } catch (error) {
+      console.error('Error creando usuario:', error);
+      alert(error.message || 'Error al crear usuario');
+    }
+  };
+
+  const handleUpdateUser = async (userData) => {
+    try {
+      await userService.update(editingUser.id, userData);
+      await loadUsers();
+      setShowUserModal(false);
+      setEditingUser(null);
+      alert('Usuario actualizado exitosamente');
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      alert(error.response?.data?.message || 'Error al actualizar usuario');
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    try {
+      await userService.delete(deletingUser.id);
+      await loadUsers();
+      setShowDeleteDialog(false);
+      setDeletingUser(null);
+      alert('Usuario eliminado exitosamente');
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      alert('Error al eliminar usuario');
+    }
+  };
+
   if (loading) {
-    return <div className="p-6">Cargando usuarios...</div>;
+    return (
+      <div className="p-6">
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+        </div>
+      </div>
+    );
   }
 
   const stats = {
@@ -39,6 +107,15 @@ export const UserList = () => {
           <h2 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h2>
           <p className="text-gray-600">Administra usuarios del sistema</p>
         </div>
+        {currentUser?.role === 'admin' && (
+          <button 
+            onClick={() => setShowUserModal(true)}
+            className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+          >
+            <Plus className="h-4 w-4" />
+            Nuevo Usuario
+          </button>
+        )}
       </div>
 
       {/* Estadísticas */}
@@ -89,6 +166,9 @@ export const UserList = () => {
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                 Fecha de Registro
               </th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                Acciones
+              </th>
             </tr>
           </thead>
           <tbody className="bg-white divide-y divide-gray-200">
@@ -119,6 +199,32 @@ export const UserList = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                   {new Date(user.created_at).toLocaleDateString('es-AR')}
                 </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  {currentUser?.role === 'admin' && (
+                    <>
+                      <button
+                        onClick={() => {
+                          setEditingUser(user);
+                          setShowUserModal(true);
+                        }}
+                        className="text-blue-600 hover:text-blue-900 mr-4"
+                        disabled={user.id === currentUser?.id}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        onClick={() => {
+                          setDeletingUser(user);
+                          setShowDeleteDialog(true);
+                        }}
+                        className="text-red-600 hover:text-red-900"
+                        disabled={user.id === currentUser?.id}
+                      >
+                        Eliminar
+                      </button>
+                    </>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
@@ -134,6 +240,37 @@ export const UserList = () => {
           </p>
         </div>
       )}
+
+      {/* Modal para crear/editar usuario */}
+      <Modal
+        isOpen={showUserModal}
+        onClose={() => {
+          setShowUserModal(false);
+          setEditingUser(null);
+        }}
+        title={editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+      >
+        <UserForm
+          user={editingUser}
+          onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
+          onCancel={() => {
+            setShowUserModal(false);
+            setEditingUser(null);
+          }}
+        />
+      </Modal>
+
+      {/* Modal de confirmacion eliminar */}
+      <ConfirmDialog
+        isOpen={showDeleteDialog}
+        onClose={() => {
+          setShowDeleteDialog(false);
+          setDeletingUser(null);
+        }}
+        onConfirm={handleDeleteUser}
+        title="Eliminar Usuario"
+        message={`¿Esta seguro que quieres eliminar al usuario "${deletingUser?.name}"? Esta accion no se puede deshacer.`}
+      />
     </div>
   );
 };

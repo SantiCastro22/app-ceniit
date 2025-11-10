@@ -1,270 +1,264 @@
-import React, { useState, useEffect } from 'react';
-import { Plus, Users, CheckCircle, Settings } from 'lucide-react';
-import { userService } from '../../services/userService';
-import { UserForm } from './UserForm';
-import { Modal } from '../common/Modal';
-import { ConfirmDialog } from '../common/ConfirmDialog';
-import { useAuth } from '../../context/AuthContext';
+import React, { useState } from 'react';
 
-export const UserList = () => {
-  const { user: currentUser } = useAuth();
-  const [users, setUsers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [showUserModal, setShowUserModal] = useState(false);
-  const [editingUser, setEditingUser] = useState(null);
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [deletingUser, setDeletingUser] = useState(null);
+export const UserForm = ({ user = null, onSubmit, onCancel }) => {
+  const [formData, setFormData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    password: '',
+    confirmPassword: '',
+    role: user?.role || 'user',
+    status: user?.status || 'active'
+  });
+  const [loading, setLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  useEffect(() => {
-    loadUsers();
-  }, []);
+  const validateForm = () => {
+    const newErrors = {};
 
-  const loadUsers = async () => {
+    // Validar nombre
+    if (!formData.name.trim()) {
+      newErrors.name = 'El nombre es obligatorio';
+    }
+
+    // Validar email
+    if (!formData.email.trim()) {
+      newErrors.email = 'El email es obligatorio';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'El email no es válido';
+    }
+
+    // Validar contraseña solo si es usuario nuevo o se está cambiando
+    if (!user) {
+      // Usuario nuevo: contraseña obligatoria
+      if (!formData.password) {
+        newErrors.password = 'La contraseña es obligatoria';
+      } else if (formData.password.length < 6) {
+        newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+      }
+
+      if (formData.password !== formData.confirmPassword) {
+        newErrors.confirmPassword = 'Las contraseñas no coinciden';
+      }
+    } else {
+      // Usuario existente: contraseña opcional
+      if (formData.password) {
+        if (formData.password.length < 6) {
+          newErrors.password = 'La contraseña debe tener al menos 6 caracteres';
+        }
+        if (formData.password !== formData.confirmPassword) {
+          newErrors.confirmPassword = 'Las contraseñas no coinciden';
+        }
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!validateForm()) {
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      const data = await userService.getAll();
-      setUsers(data);
+      // Si es edición y no se cambió la contraseña, no enviarla
+      const submitData = { ...formData };
+      if (user && !submitData.password) {
+        delete submitData.password;
+        delete submitData.confirmPassword;
+      }
+
+      await onSubmit(submitData);
     } catch (error) {
-      console.error('Error cargando usuarios:', error);
+      console.error('Error al enviar formulario:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const handleCreateUser = async (userData) => {
-    try {
-      // Usar el endpoint de registro para crear usuario
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/register`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        },
-        body: JSON.stringify(userData)
-      });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || 'Error al crear usuario');
-      }
-
-      await loadUsers();
-      setShowUserModal(false);
-      alert('Usuario creado exitosamente');
-    } catch (error) {
-      console.error('Error creando usuario:', error);
-      alert(error.message || 'Error al crear usuario');
+    // Limpiar error del campo cuando el usuario escribe
+    if (errors[name]) {
+      setErrors(prev => ({ ...prev, [name]: '' }));
     }
-  };
-
-  const handleUpdateUser = async (userData) => {
-    try {
-      await userService.update(editingUser.id, userData);
-      await loadUsers();
-      setShowUserModal(false);
-      setEditingUser(null);
-      alert('Usuario actualizado exitosamente');
-    } catch (error) {
-      console.error('Error actualizando usuario:', error);
-      alert(error.response?.data?.message || 'Error al actualizar usuario');
-    }
-  };
-
-  const handleDeleteUser = async () => {
-    try {
-      await userService.delete(deletingUser.id);
-      await loadUsers();
-      setShowDeleteDialog(false);
-      setDeletingUser(null);
-      alert('Usuario eliminado exitosamente');
-    } catch (error) {
-      console.error('Error eliminando usuario:', error);
-      alert('Error al eliminar usuario');
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="p-6">
-        <div className="flex justify-center items-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        </div>
-      </div>
-    );
-  }
-
-  const stats = {
-    total: users.length,
-    activos: users.filter(u => u.status === 'active').length,
-    admins: users.filter(u => u.role === 'admin').length
   };
 
   return (
-    <div className="p-6">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Gestión de Usuarios</h2>
-          <p className="text-gray-600">Administra usuarios del sistema</p>
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Nombre completo *
+        </label>
+        <input
+          type="text"
+          name="name"
+          value={formData.name}
+          onChange={handleChange}
+          placeholder="Ej: Juan Pérez"
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.name ? 'border-red-500' : 'border-gray-300'
+          }`}
+        />
+        {errors.name && (
+          <p className="mt-1 text-xs text-red-600">{errors.name}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Correo electrónico *
+        </label>
+        <input
+          type="email"
+          name="email"
+          value={formData.email}
+          onChange={handleChange}
+          placeholder="usuario@ceniit.edu.ar"
+          disabled={!!user} // No permitir cambiar email en edición
+          className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            errors.email ? 'border-red-500' : 'border-gray-300'
+          } ${user ? 'bg-gray-100 cursor-not-allowed' : ''}`}
+        />
+        {errors.email && (
+          <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+        )}
+        {user && (
+          <p className="mt-1 text-xs text-gray-500">
+            El email no puede ser modificado
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {user ? 'Nueva contraseña (opcional)' : 'Contraseña *'}
+        </label>
+        <div className="relative">
+          <input
+            type={showPassword ? 'text' : 'password'}
+            name="password"
+            value={formData.password}
+            onChange={handleChange}
+            placeholder={user ? 'Dejar vacío para mantener actual' : '••••••••'}
+            className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              errors.password ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          <button
+            type="button"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            onClick={() => setShowPassword(!showPassword)}
+          >
+            {showPassword ? (
+              <span className="text-gray-400">👁️</span>
+            ) : (
+              <span className="text-gray-400">👁️‍🗨️</span>
+            )}
+          </button>
         </div>
-        <button 
-          onClick={() => setShowUserModal(true)}
-          className="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2"
+        {errors.password && (
+          <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+        )}
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          {user ? 'Confirmar nueva contraseña' : 'Confirmar contraseña *'}
+        </label>
+        <div className="relative">
+          <input
+            type={showConfirmPassword ? 'text' : 'password'}
+            name="confirmPassword"
+            value={formData.confirmPassword}
+            onChange={handleChange}
+            placeholder={user ? 'Confirmar nueva contraseña' : '••••••••'}
+            className={`w-full px-3 py-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+            }`}
+          />
+          <button
+            type="button"
+            className="absolute inset-y-0 right-0 pr-3 flex items-center"
+            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+          >
+            {showConfirmPassword ? (
+              <span className="text-gray-400">👁️</span>
+            ) : (
+              <span className="text-gray-400">👁️‍🗨️</span>
+            )}
+          </button>
+        </div>
+        {errors.confirmPassword && (
+          <p className="mt-1 text-xs text-red-600">{errors.confirmPassword}</p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Rol *
+          </label>
+          <select
+            name="role"
+            value={formData.role}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="user">Usuario</option>
+            <option value="admin">Administrador</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Estado *
+          </label>
+          <select
+            name="status"
+            value={formData.status}
+            onChange={handleChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="active">Activo</option>
+            <option value="inactive">Inactivo</option>
+          </select>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <p className="text-sm text-blue-800">
+          💡 {user 
+            ? 'Deja la contraseña vacía si no deseas cambiarla.' 
+            : 'El usuario recibirá estas credenciales para acceder al sistema.'
+          }
+        </p>
+      </div>
+
+      <div className="flex justify-end space-x-3 pt-4">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+          disabled={loading}
         >
-          <Plus className="h-4 w-4" />
-          Nuevo Usuario
+          Cancelar
+        </button>
+        <button
+          onClick={handleSubmit}
+          disabled={loading}
+          className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Guardando...' : (user ? 'Actualizar Usuario' : 'Crear Usuario')}
         </button>
       </div>
-
-      {/* Estadísticas */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center">
-            <Users className="h-8 w-8 text-blue-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Total Usuarios</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center">
-            <CheckCircle className="h-8 w-8 text-green-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Activos</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.activos}</p>
-            </div>
-          </div>
-        </div>
-        <div className="bg-white rounded-lg shadow-sm border p-4">
-          <div className="flex items-center">
-            <Settings className="h-8 w-8 text-purple-500" />
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-600">Administradores</p>
-              <p className="text-2xl font-bold text-gray-900">{stats.admins}</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tabla de usuarios */}
-      <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-        <table className="min-w-full divide-y divide-gray-200">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Usuario
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Rol
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Estado
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Fecha de Registro
-              </th>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                Acciones
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {users.map((user) => (
-              <tr key={user.id} className="hover:bg-gray-50">
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <div className="text-sm font-medium text-gray-900">{user.name}</div>
-                  <div className="text-sm text-gray-500">{user.email}</div>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.role === 'admin' 
-                      ? 'bg-purple-100 text-purple-800' 
-                      : 'bg-blue-100 text-blue-800'
-                  }`}>
-                    {user.role === 'admin' ? 'Administrador' : 'Usuario'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap">
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                    user.status === 'active' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {user.status === 'active' ? 'Activo' : 'Inactivo'}
-                  </span>
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                  {new Date(user.created_at).toLocaleDateString('es-AR')}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                  <button
-                    onClick={() => {
-                      setEditingUser(user);
-                      setShowUserModal(true);
-                    }}
-                    className="text-blue-600 hover:text-blue-900 mr-4"
-                    disabled={user.id === currentUser?.id}
-                  >
-                    Editar
-                  </button>
-                  <button
-                    onClick={() => {
-                      setDeletingUser(user);
-                      setShowDeleteDialog(true);
-                    }}
-                    className="text-red-600 hover:text-red-900"
-                    disabled={user.id === currentUser?.id}
-                  >
-                    Eliminar
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
-
-      {users.length === 0 && (
-        <div className="text-center py-12 bg-white rounded-lg shadow-sm border mt-6">
-          <Users className="mx-auto h-12 w-12 text-gray-400" />
-          <h3 className="mt-2 text-sm font-medium text-gray-900">No hay usuarios</h3>
-          <p className="mt-1 text-sm text-gray-500">
-            Comienza creando tu primer usuario.
-          </p>
-        </div>
-      )}
-
-      {/* Modal para crear/editar usuario */}
-      <Modal
-        isOpen={showUserModal}
-        onClose={() => {
-          setShowUserModal(false);
-          setEditingUser(null);
-        }}
-        title={editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
-      >
-        <UserForm
-          user={editingUser}
-          onSubmit={editingUser ? handleUpdateUser : handleCreateUser}
-          onCancel={() => {
-            setShowUserModal(false);
-            setEditingUser(null);
-          }}
-        />
-      </Modal>
-
-      {/* Modal de confirmación para eliminar */}
-      <ConfirmDialog
-        isOpen={showDeleteDialog}
-        onClose={() => {
-          setShowDeleteDialog(false);
-          setDeletingUser(null);
-        }}
-        onConfirm={handleDeleteUser}
-        title="Eliminar Usuario"
-        message={`¿Estás seguro de que quieres eliminar al usuario "${deletingUser?.name}"? Esta acción no se puede deshacer.`}
-      />
     </div>
   );
 };
