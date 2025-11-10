@@ -236,7 +236,7 @@ export const ReservationForm = ({ reservation = null, onSubmit, onCancel }) => {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
         <p className="text-sm text-blue-800">
-          ℹTu solicitud de reserva quedará pendiente hasta que un administrador la apruebe.
+          Tu solicitud de reserva quedará pendiente hasta que un administrador la apruebe.
         </p>
       </div>
 

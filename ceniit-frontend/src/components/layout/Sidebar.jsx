@@ -19,7 +19,7 @@ export const Sidebar = ({ activeSection, setActiveSection, user, onLogout }) => 
     { id: 'projects', name: 'Proyectos', icon: FileText, roles: ['admin', 'user'] },
     { id: 'users', name: 'Usuarios', icon: Users, roles: ['admin'] },
     { id: 'reports', name: 'Reportes', icon: Download, roles: ['admin'] },
-    { id: 'maintenance', name: 'Mantenimiento', icon: Wrench, roles: ['admin'] }
+    // { id: 'maintenance', name: 'Mantenimiento', icon: Wrench, roles: ['admin'] }
   ];
 
   const filteredMenuItems = menuItems.filter(item => item.roles.includes(user?.role));
